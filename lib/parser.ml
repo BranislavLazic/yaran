@@ -11,7 +11,13 @@ let operator =
   => fun o -> Atom (Operator o)
 
 let parens = between (exactly '(') (exactly ')')
-let atom = integer <|> operator <|> ident
+
+let str =
+  between (exactly '"') (exactly '"') (many (satisfy (fun s -> s != '"')))
+  => implode
+  => fun s -> Atom (Str s)
+
+let atom = str <|> integer <|> operator <|> ident
 
 let rec expr input =
   (parens (sep_by expr space) => (fun l -> ListSexp l) <|> atom) input

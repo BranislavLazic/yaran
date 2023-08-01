@@ -5,20 +5,14 @@
 (generate_opam_files true)
 
 (source
- (github username/reponame))
+ (github BranislavLazic/yaran))
 
-(authors "Author Name")
+(authors "Branislav Lazic")
 
-(maintainers "Maintainer Name")
+(maintainers "Branislav Lazic")
 
 (license LICENSE)
 
-(documentation https://url/to/documentation)
-
 (package
  (name yaran)
- (synopsis "A short synopsis")
- (description "A longer description")
- (depends ocaml dune)
- (tags
-  (topics "to describe" your project)))
+ (depends ocaml dune))

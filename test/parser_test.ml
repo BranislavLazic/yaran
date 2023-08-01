@@ -41,6 +41,17 @@ let test_parser_operator_in_list () =
           [ Atom (Operator "++"); Atom (Num 1); Atom (Num 2); Atom (Num 3) ]))
     (show_sexp res)
 
+let test_parser_string () =
+  let res =
+    Option.get
+      (parse Parser.expr (LazyStream.of_string "(1 \"abc 123 + -\" 44)"))
+  in
+  Alcotest.(check @@ string)
+    "same expression lists"
+    (show_sexp
+       (ListSexp [ Atom (Num 1); Atom (Str "abc 123 + -"); Atom (Num 44) ]))
+    (show_sexp res)
+
 let () =
   run "Parser"
     [
@@ -59,4 +70,6 @@ let () =
           test_case "parse an operator in a list" `Quick
             test_parser_operator_in_list;
         ] );
+      ( "string test",
+        [ test_case "parse a string in a list" `Quick test_parser_string ] );
     ]
