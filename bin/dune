@@ -1,6 +1,6 @@
 (executable
  (public_name yaran)
  (name main)
- (libraries yaran opal)
+ (libraries yaran)
  (preprocess
   (pps ppx_deriving.show ppx_deriving.ord)))
