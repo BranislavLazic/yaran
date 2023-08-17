@@ -1,37 +1,47 @@
 open Ast
 open Token
 
-type parser_error = { errors : string list }
+type parser_error = ParserError of string [@@deriving show]
+
+exception UnmatchedParens of string
 
 let to_ast = function
+  | Ident "nil" -> Atom Nil
+  | Ident "true" -> Atom (Bool true)
+  | Ident "false" -> Atom (Bool false)
   | Ident id -> Atom (Ident id)
-  | Num n -> Atom (Num (int_of_string n))
+  | Num num -> Atom (Num (int_of_string num))
   | Operator op -> Atom (Operator op)
   | _ -> Atom Empty
 
-let concat_sexps lsexp rsexp =
-  match (lsexp, rsexp) with
-  | Atom a, ListSexp [] | ListSexp [], Atom a -> ListSexp [ Atom a ]
-  | ListSexp l, ListSexp r -> ListSexp (l @ r)
-  | ListSexp l, Atom a -> ListSexp (l @ [ Atom a ])
-  | Atom a, ListSexp l -> ListSexp ([ Atom a ] @ l)
-  | Atom l, Atom r -> ListSexp [ Atom l; Atom r ]
+let try_parse parser tokens =
+  try
+    let sexps, _ = parser tokens in
+    Ok sexps
+  with UnmatchedParens err -> Error (ParserError err)
 
-let rec tokens_to_sexp = function
-  | [] -> ListSexp []
-  | OpenParens :: t when List.hd (List.rev t) == ClosedParens ->
-      ListSexp [ tokens_to_sexp t ]
-  | h :: t ->
-      if to_ast h != Atom Empty then concat_sexps (to_ast h) (tokens_to_sexp t)
-      else tokens_to_sexp t
+let rec parse = function
+  | [] -> (ListSexp [], [])
+  | OpenParens :: rest -> (
+      match parse_list rest with
+      | sexpr, ClosedParens :: rest' -> (sexpr, rest')
+      | _ -> raise (UnmatchedParens "Unmatched ("))
+  | ClosedParens :: _ -> raise (UnmatchedParens "Unmatched )")
+  | tok :: rest -> (to_ast tok, rest)
 
-let rec find_illegal = function
-  | [] -> []
-  | Illegal e :: t -> [ e ] @ find_illegal t
-  | _ :: t -> find_illegal t
+and parse_list tokens =
+  match tokens with
+  | [] | ClosedParens :: _ -> (ListSexp [], tokens)
+  | _ ->
+      let sexp, rest = parse tokens in
+      let rest_sexp, rest' = parse_list rest in
+      (concat_sexps (ListSexp [ sexp ], rest_sexp), rest')
+
+and concat_sexps = function
+  | ListSexp left, ListSexp right -> ListSexp (left @ right)
+  | _ -> ListSexp []
 
 let parse input =
-  let tokens = Lexer.read_toks input Lexer.init_lexer in
-  let illegal_errors = find_illegal tokens in
-  if List.length illegal_errors > 0 then Error { errors = illegal_errors }
-  else Ok (flatten (tokens_to_sexp tokens))
+  match Lexer.read_all input Lexer.init_lexer with
+  | Ok toks -> Result.map flatten (try_parse parse toks)
+  | Error (LexerError err) -> Error (ParserError err)

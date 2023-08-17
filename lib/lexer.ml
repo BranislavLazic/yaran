@@ -1,5 +1,9 @@
 open Token
 
+type lexer_error = LexerError of string [@@deriving show]
+
+exception IllegalTokenFound of string
+
 type lexer = { read_position : int; ch : char option } [@@deriving show]
 
 let init_lexer = { read_position = 0; ch = None }
@@ -30,10 +34,12 @@ let concat_tokens = function
   | Num lvalue, _ -> Num lvalue
   | Operator lvalue, _ -> Operator lvalue
   | ltok, rtok ->
-      Illegal
-        (Printf.sprintf "Illegal characters found %s, %s." (show_tok ltok)
-           (show_tok rtok))
+      raise
+        (IllegalTokenFound
+           (Printf.sprintf "Illegal characters found %s, %s." (show_tok ltok)
+              (show_tok rtok)))
 
+(* Rip and tear... until it is None *)
 let rec next_token input lexer =
   let lxr = read_char input lexer in
   match lxr.ch with
@@ -56,13 +62,20 @@ let rec next_token input lexer =
       else op
   | Some ch when is_whitespace ch -> next_token input lxr
   | Some ch ->
-      Illegal
-        (Printf.sprintf "Illegal character '%s' found at position index %d."
-           (String.make 1 ch) lxr.read_position)
+      raise
+        (IllegalTokenFound
+           (Printf.sprintf "Illegal character '%s' found at position index %d."
+              (String.make 1 ch) lxr.read_position))
   | None -> Eof
 
-let rec read_toks input lexer =
+let try_read read_fun input lexer =
+  try Ok (read_fun input lexer)
+  with IllegalTokenFound e -> Error (LexerError e)
+
+let rec unsafe_read_all input lexer =
   match next_token input lexer with
   | Eof -> []
   | Illegal i -> [ Illegal i ]
-  | tok -> [ tok ] @ read_toks input lexer
+  | tok -> [ tok ] @ unsafe_read_all input lexer
+
+let read_all input lexer = try_read unsafe_read_all input lexer

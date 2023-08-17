@@ -49,7 +49,7 @@ let test_lexer_number () =
 
 let test_lexer_read_toks_single_atom () =
   let input = Stream.of_string "123" in
-  let toks = Lexer.read_toks input Lexer.init_lexer in
+  let toks = Result.get_ok (Lexer.read_all input Lexer.init_lexer) in
   let toks_str = List.map (fun t -> show_tok t) toks in
   Alcotest.(check @@ list string)
     "same tokens"
@@ -58,7 +58,7 @@ let test_lexer_read_toks_single_atom () =
 
 let test_lexer_read_toks_simple_expression () =
   let input = Stream.of_string "(123)" in
-  let toks = Lexer.read_toks input Lexer.init_lexer in
+  let toks = Result.get_ok (Lexer.read_all input Lexer.init_lexer) in
   let toks_str = List.map (fun t -> show_tok t) toks in
   Alcotest.(check @@ list string)
     "same tokens"
@@ -71,7 +71,7 @@ let test_lexer_read_toks_simple_expression () =
 
 let test_lexer_read_toks_ignore_whitespace () =
   let input = Stream.of_string "   (  111 abc  )     " in
-  let toks = Lexer.read_toks input Lexer.init_lexer in
+  let toks = Result.get_ok (Lexer.read_all input Lexer.init_lexer) in
   let toks_str = List.map (fun t -> show_tok t) toks in
   Alcotest.(check @@ list string)
     "same tokens"
@@ -85,16 +85,12 @@ let test_lexer_read_toks_ignore_whitespace () =
 
 let test_lexer_read_toks_illegal () =
   let input = Stream.of_string "( ~)" in
-  let toks = Lexer.read_toks input Lexer.init_lexer in
-  let toks_str = List.map (fun t -> show_tok t) toks in
-  Alcotest.(check @@ list string)
-    "same tokens"
-    [
-      show_tok Token.OpenParens;
-      show_tok
-        (Token.Illegal "Illegal character '~' found at position index 2.");
-    ]
-    toks_str
+  let err = Result.get_error (Lexer.read_all input Lexer.init_lexer) in
+  Alcotest.(check @@ string)
+    "same errors"
+    (Lexer.show_lexer_error
+       (LexerError "Illegal character '~' found at position index 2."))
+    (Lexer.show_lexer_error err)
 
 let () =
   run "Lexer"
