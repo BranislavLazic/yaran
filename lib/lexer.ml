@@ -6,7 +6,7 @@ exception IllegalTokenFound of string
 
 type lexer = { read_position : int; ch : char option } [@@deriving show]
 
-let init_lexer = { read_position = 0; ch = None }
+let init_lexer = { read_position = -1; ch = None }
 
 let is_letter ch =
   (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
@@ -43,30 +43,33 @@ let concat_tokens = function
 let rec next_token input lexer =
   let lxr = read_char input lexer in
   match lxr.ch with
-  | Some '(' -> OpenParens
-  | Some ')' -> ClosedParens
+  | Some '(' -> (OpenParens, lxr)
+  | Some ')' -> (ClosedParens, lxr)
   | Some ch when is_letter ch ->
       let ident = Ident (String.make 1 ch) in
       if check_peek_char is_letter input then
-        concat_tokens (ident, next_token input lxr)
-      else ident
+        let tok, lxr = next_token input lxr in
+        (concat_tokens (ident, tok), lxr)
+      else (ident, lxr)
   | Some ch when is_digit ch ->
       let num = Num (String.make 1 ch) in
       if check_peek_char is_digit input then
-        concat_tokens (num, next_token input lxr)
-      else num
+        let tok, lxr = next_token input lxr in
+        (concat_tokens (num, tok), lxr)
+      else (num, lxr)
   | Some ch when is_operator ch ->
       let op = Operator (String.make 1 ch) in
       if check_peek_char is_operator input then
-        concat_tokens (op, next_token input lxr)
-      else op
+        let tok, lxr = next_token input lxr in
+        (concat_tokens (op, tok), lxr)
+      else (op, lxr)
   | Some ch when is_whitespace ch -> next_token input lxr
   | Some ch ->
       raise
         (IllegalTokenFound
            (Printf.sprintf "Illegal character '%s' found at position index %d."
               (String.make 1 ch) lxr.read_position))
-  | None -> Eof
+  | None -> (Eof, lxr)
 
 let try_read read_fun input lexer =
   try Ok (read_fun input lexer)
@@ -74,8 +77,7 @@ let try_read read_fun input lexer =
 
 let rec unsafe_read_all input lexer =
   match next_token input lexer with
-  | Eof -> []
-  | Illegal i -> [ Illegal i ]
-  | tok -> [ tok ] @ unsafe_read_all input lexer
+  | Eof, _ -> []
+  | tok, lxr -> [ tok ] @ unsafe_read_all input lxr
 
 let read_all input lexer = try_read unsafe_read_all input lexer

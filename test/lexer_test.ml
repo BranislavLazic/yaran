@@ -5,46 +5,46 @@ open Token
 let test_lexer_empty_expr () =
   let input = Stream.of_string "()" in
   let lexer = Lexer.init_lexer in
-  let res_open_parens = Lexer.next_token input lexer in
+  let res_open_parens, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok OpenParens) (show_tok res_open_parens);
-  let res_closed_parens = Lexer.next_token input lexer in
+  let res_closed_parens, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok ClosedParens)
     (show_tok res_closed_parens);
-  let res_eof = Lexer.next_token input lexer in
+  let res_eof, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string) "same tokens" (show_tok Eof) (show_tok res_eof)
 
 let test_lexer_identifier () =
   let input = Stream.of_string "(abc)" in
   let lexer = Lexer.init_lexer in
-  let res_open_parens = Lexer.next_token input lexer in
+  let res_open_parens, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok OpenParens) (show_tok res_open_parens);
-  let res_ident = Lexer.next_token input lexer in
+  let res_ident, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok (Ident "abc")) (show_tok res_ident);
-  let res_closed_parens = Lexer.next_token input lexer in
+  let res_closed_parens, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok ClosedParens)
     (show_tok res_closed_parens);
-  let res_eof = Lexer.next_token input lexer in
+  let res_eof, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string) "same tokens" (show_tok Eof) (show_tok res_eof)
 
 let test_lexer_number () =
   let input = Stream.of_string "(123)" in
   let lexer = Lexer.init_lexer in
-  let res_open_parens = Lexer.next_token input lexer in
+  let res_open_parens, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok OpenParens) (show_tok res_open_parens);
-  let res_number = Lexer.next_token input lexer in
+  let res_number, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok (Num "123")) (show_tok res_number);
-  let res_closed_parens = Lexer.next_token input lexer in
+  let res_closed_parens, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string)
     "same tokens" (show_tok ClosedParens)
     (show_tok res_closed_parens);
-  let res_eof = Lexer.next_token input lexer in
+  let res_eof, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string) "same tokens" (show_tok Eof) (show_tok res_eof)
 
 let test_lexer_read_toks_single_atom () =
