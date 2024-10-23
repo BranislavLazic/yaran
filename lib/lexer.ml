@@ -2,7 +2,7 @@ open Token
 
 type lexer_error = LexerError of string [@@deriving show]
 
-exception IllegalTokenFound of string
+exception Illegal_token_found of string
 
 type lexer = { read_position : int; ch : char option } [@@deriving show]
 
@@ -13,7 +13,7 @@ let is_letter ch =
 
 let is_digit ch = ch >= '0' && ch <= '9'
 let is_operator ch = List.exists (fun c -> c == ch) [ '+'; '-'; '*'; '/' ]
-let is_whitespace ch = ch == ' ' || ch == '\t'
+let is_whitespace ch = ch == ' ' || ch == '\t' || ch == '\n'
 
 let try_next input =
   try Ok (Stream.next input) with Stream.Failure -> Error "End of file"
@@ -35,7 +35,7 @@ let concat_tokens = function
   | Operator lvalue, _ -> Operator lvalue
   | ltok, rtok ->
       raise
-        (IllegalTokenFound
+        (Illegal_token_found
            (Printf.sprintf "Illegal characters found %s, %s." (show_tok ltok)
               (show_tok rtok)))
 
@@ -66,14 +66,14 @@ let rec next_token input lexer =
   | Some ch when is_whitespace ch -> next_token input lxr
   | Some ch ->
       raise
-        (IllegalTokenFound
+        (Illegal_token_found
            (Printf.sprintf "Illegal character '%s' found at position index %d."
               (String.make 1 ch) lxr.read_position))
   | None -> (Eof, lxr)
 
 let try_read read_fun input lexer =
   try Ok (read_fun input lexer)
-  with IllegalTokenFound e -> Error (LexerError e)
+  with Illegal_token_found e -> Error (LexerError e)
 
 let rec unsafe_read_all input lexer =
   match next_token input lexer with

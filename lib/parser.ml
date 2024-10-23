@@ -3,7 +3,7 @@ open Token
 
 type parser_error = ParserError of string [@@deriving show]
 
-exception UnmatchedParens of string
+exception Unmatched_parens of string
 
 let to_ast = function
   | Ident "nil" -> Atom Nil
@@ -18,15 +18,15 @@ let try_parse parser tokens =
   try
     let sexps, _ = parser tokens in
     Ok sexps
-  with UnmatchedParens err -> Error (ParserError err)
+  with Unmatched_parens err -> Error (ParserError err)
 
 let rec parse = function
   | [] -> (ListSexp [], [])
   | OpenParens :: rest -> (
       match parse_list rest with
       | sexpr, ClosedParens :: rest' -> (sexpr, rest')
-      | _ -> raise (UnmatchedParens "Unmatched ("))
-  | ClosedParens :: _ -> raise (UnmatchedParens "Unmatched )")
+      | _ -> raise (Unmatched_parens "Unmatched ("))
+  | ClosedParens :: _ -> raise (Unmatched_parens "Unmatched )")
   | tok :: rest -> (to_ast tok, rest)
 
 and parse_list tokens =

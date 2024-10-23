@@ -15,4 +15,11 @@
 
 (package
  (name yaran)
- (depends ocaml dune))
+ (synopsis "A Lisp like language")
+ (description "A Lisp like language")
+ (depends
+  ocaml
+  dune
+  ppx_deriving
+  (alcotest
+   (>= 1.7.0))))
