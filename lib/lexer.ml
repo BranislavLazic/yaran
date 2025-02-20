@@ -45,24 +45,9 @@ let rec next_token input lexer =
   match lxr.ch with
   | Some '(' -> (OpenParens, lxr)
   | Some ')' -> (ClosedParens, lxr)
-  | Some ch when is_letter ch ->
-      let ident = Ident (String.make 1 ch) in
-      if check_peek_char is_letter input then
-        let tok, lxr = next_token input lxr in
-        (concat_tokens (ident, tok), lxr)
-      else (ident, lxr)
-  | Some ch when is_digit ch ->
-      let num = Num (String.make 1 ch) in
-      if check_peek_char is_digit input then
-        let tok, lxr = next_token input lxr in
-        (concat_tokens (num, tok), lxr)
-      else (num, lxr)
-  | Some ch when is_operator ch ->
-      let op = Operator (String.make 1 ch) in
-      if check_peek_char is_operator input then
-        let tok, lxr = next_token input lxr in
-        (concat_tokens (op, tok), lxr)
-      else (op, lxr)
+  | Some ch when is_letter ch -> handle_letter input lxr ch
+  | Some ch when is_digit ch -> handle_digit input lxr ch
+  | Some ch when is_operator ch -> handle_operator input lxr ch
   | Some ch when is_whitespace ch -> next_token input lxr
   | Some ch ->
       raise
@@ -70,6 +55,22 @@ let rec next_token input lexer =
            (Printf.sprintf "Illegal character '%s' found at position index %d."
               (String.make 1 ch) lxr.read_position))
   | None -> (Eof, lxr)
+
+and handle_token input lxr ch token_constructor check_function =
+  let token = token_constructor (String.make 1 ch) in
+  if check_peek_char check_function input then
+    let tok, lxr = next_token input lxr in
+    (concat_tokens (token, tok), lxr)
+  else (token, lxr)
+
+and handle_letter input lxr ch =
+  handle_token input lxr ch (fun s -> Ident s) is_letter
+
+and handle_digit input lxr ch =
+  handle_token input lxr ch (fun s -> Num s) is_digit
+
+and handle_operator input lxr ch =
+  handle_token input lxr ch (fun s -> Operator s) is_operator
 
 let try_read read_fun input lexer =
   try Ok (read_fun input lexer)

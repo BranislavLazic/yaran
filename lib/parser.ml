@@ -16,8 +16,13 @@ let to_ast = function
 
 let try_parse parser tokens =
   try
-    let sexps, _ = parser tokens in
-    Ok sexps
+    let sexps, remaining_tokens = parser tokens in
+    if
+      List.exists
+        (function OpenParens | ClosedParens -> true | _ -> false)
+        remaining_tokens
+    then Error (ParserError "Unmatched parentheses")
+    else Ok sexps
   with Unmatched_parens err -> Error (ParserError err)
 
 let rec parse = function
@@ -43,5 +48,8 @@ and concat_sexps = function
 
 let parse input =
   match Lexer.read_all input Lexer.init_lexer with
-  | Ok toks -> Result.map flatten (try_parse parse toks)
+  | Ok toks -> (
+      match try_parse parse toks with
+      | Ok sexps -> Ok (flatten sexps)
+      | Error err -> Error err)
   | Error (LexerError err) -> Error (ParserError err)

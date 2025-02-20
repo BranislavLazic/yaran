@@ -47,6 +47,28 @@ let test_lexer_number () =
   let res_eof, _ = Lexer.next_token input lexer in
   Alcotest.(check @@ string) "same tokens" (show_tok Eof) (show_tok res_eof)
 
+let test_lexer_operator () =
+  let input = Stream.of_string "(+ 1 2)" in
+  let lexer = Lexer.init_lexer in
+  let res_open_parens, _ = Lexer.next_token input lexer in
+  Alcotest.(check @@ string)
+    "same tokens" (show_tok OpenParens) (show_tok res_open_parens);
+  let res_operator, _ = Lexer.next_token input lexer in
+  Alcotest.(check @@ string)
+    "same tokens" (show_tok (Operator "+")) (show_tok res_operator);
+  let res_num1, _ = Lexer.next_token input lexer in
+  Alcotest.(check @@ string)
+    "same tokens" (show_tok (Num "1")) (show_tok res_num1);
+  let res_num2, _ = Lexer.next_token input lexer in
+  Alcotest.(check @@ string)
+    "same tokens" (show_tok (Num "2")) (show_tok res_num2);
+  let res_closed_parens, _ = Lexer.next_token input lexer in
+  Alcotest.(check @@ string)
+    "same tokens" (show_tok ClosedParens)
+    (show_tok res_closed_parens);
+  let res_eof, _ = Lexer.next_token input lexer in
+  Alcotest.(check @@ string) "same tokens" (show_tok Eof) (show_tok res_eof)
+
 let test_lexer_read_toks_single_atom () =
   let input = Stream.of_string "123" in
   let toks = Result.get_ok (Lexer.read_all input Lexer.init_lexer) in
@@ -92,6 +114,21 @@ let test_lexer_read_toks_illegal () =
        (LexerError "Illegal character '~' found at position index 2."))
     (Lexer.show_lexer_error err)
 
+let test_lexer_mixed_tokens () =
+  let input = Stream.of_string "(+ 123 abc)" in
+  let toks = Result.get_ok (Lexer.read_all input Lexer.init_lexer) in
+  let toks_str = List.map (fun t -> show_tok t) toks in
+  Alcotest.(check @@ list string)
+    "same tokens"
+    [
+      show_tok Token.OpenParens;
+      show_tok (Token.Operator "+");
+      show_tok (Token.Num "123");
+      show_tok (Token.Ident "abc");
+      show_tok Token.ClosedParens;
+    ]
+    toks_str
+
 let () =
   run "Lexer"
     [
@@ -106,6 +143,9 @@ let () =
         ] );
       ( "number test",
         [ test_case "should tokenize a number" `Quick test_lexer_number ] );
+      ( "operator test",
+        [ test_case "should tokenize an operator" `Quick test_lexer_operator ]
+      );
       ( "read all tokens",
         [
           test_case "should read a single atom" `Quick
@@ -116,5 +156,6 @@ let () =
             test_lexer_read_toks_ignore_whitespace;
           test_case "should break reading at an illegal token" `Quick
             test_lexer_read_toks_illegal;
+          test_case "should read mixed tokens" `Quick test_lexer_mixed_tokens;
         ] );
     ]

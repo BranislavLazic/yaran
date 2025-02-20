@@ -20,27 +20,26 @@ let rec eval_numeric_operation = function
         (Unsupported_operation
            (Printf.sprintf "The operation is not supported."))
 
-and add (sexp : sexp list) =
-  List.fold_left (fun a c -> a + c) 0 (nums_only sexp)
+and add sexps = List.fold_left ( + ) 0 (nums_only sexps)
 
-and subtract (sexp : sexp list) =
-  let nums = nums_only sexp in
-  List.fold_left (fun a c -> a - c) (List.hd nums) (List.tl nums)
+and subtract sexps =
+  match nums_only sexps with
+  | [] ->
+      raise (Unsupported_operation "Subtraction requires at least one number.")
+  | h :: t -> List.fold_left ( - ) h t
 
-and multiply (sexp : sexp list) =
-  List.fold_left (fun a c -> a * c) 1 (nums_only sexp)
+and multiply sexps = List.fold_left ( * ) 1 (nums_only sexps)
 
-and divide (sexp : sexp list) =
-  let nums = nums_only sexp in
-  List.fold_left (fun a c -> a / c) (List.hd nums) (List.tl nums)
+and divide sexps =
+  match nums_only sexps with
+  | [] -> raise (Unsupported_operation "Division requires at least one number.")
+  | h :: t -> List.fold_left ( / ) h t
 
-and nums_only (sexp : sexp list) =
-  match sexp with
-  | Atom (Num num) :: rest -> [ num ] @ nums_only rest
-  | ListSexp (Atom (Operator op) :: inner_rest) :: rest ->
-      [
-        eval_numeric_operation (ListSexp ([ Atom (Operator op) ] @ inner_rest));
-      ]
-      @ nums_only rest
-  | [] -> []
-  | _ -> raise (Not_number "Not a number.")
+and nums_only sexps =
+  List.map
+    (function
+      | Atom (Num num) -> num
+      | ListSexp (Atom (Operator op) :: inner_rest) ->
+          eval_numeric_operation (ListSexp (Atom (Operator op) :: inner_rest))
+      | _ -> raise (Not_number "Not a number."))
+    sexps
