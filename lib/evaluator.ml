@@ -3,7 +3,7 @@ open Ast
 type yaran_val =
   | NumVal of float
   | BoolVal of bool
-  | StringVal of string
+  | StrVal of string
   | NilVal
   | Closure of { params : Ast.sexp list; body : Ast.sexp; env : environment }
   | Builtin of (yaran_val list -> yaran_val)
@@ -19,7 +19,7 @@ exception Not_a_list of string
 let show_yaran_val = function
   | NumVal n -> string_of_float n
   | BoolVal b -> string_of_bool b
-  | StringVal s -> s
+  | StrVal s -> s
   | NilVal -> "nil"
   | Closure _ -> "<closure>"
   | Builtin _ -> "<builtin>"
@@ -147,12 +147,56 @@ let builtin_ops =
             raise
               (Unsupported_operation
                  "Comparison operations require exactly two numbers.") );
+    ( "string-length",
+      fun args ->
+        match args with
+        | [ StrVal s ] -> NumVal (float_of_int (String.length s))
+        | _ -> raise (Unsupported_operation "string-length expects a string") );
+    ( "string-append",
+      fun args ->
+        let strings =
+          List.map
+            (function
+              | StrVal s -> s
+              | _ ->
+                  raise (Unsupported_operation "string-append expects strings"))
+            args
+        in
+        StrVal (String.concat "" strings) );
+    ( "substring",
+      fun args ->
+        match args with
+        | [ StrVal s; NumVal start; NumVal len ] ->
+            StrVal (String.sub s (int_of_float start) (int_of_float len))
+        | _ ->
+            raise
+              (Unsupported_operation
+                 "substring expects a string and two numbers") );
+    ( "string-upcase",
+      fun args ->
+        match args with
+        | [ StrVal s ] -> StrVal (String.uppercase_ascii s)
+        | _ -> raise (Unsupported_operation "string-upcase expects a string") );
+    ( "string-downcase",
+      fun args ->
+        match args with
+        | [ StrVal s ] -> StrVal (String.lowercase_ascii s)
+        | _ -> raise (Unsupported_operation "string-downcase expects a string")
+    );
   ]
+
+let empty_env () =
+  let env = { values = Hashtbl.create 10; parent = None } in
+  List.iter
+    (fun (name, func) -> Hashtbl.add env.values name (Builtin func))
+    builtin_ops;
+  env
 
 let rec eval sexp env ~debug =
   match sexp with
   | Atom (Num n) -> NumVal n
   | Atom (Bool b) -> BoolVal b
+  | Atom (Str s) -> StrVal s
   | Atom (Ident id) -> eval_identifier id env
   | ListSexp [] -> NilVal
   | ListSexp [ ListSexp s ] -> eval (ListSexp s) env ~debug

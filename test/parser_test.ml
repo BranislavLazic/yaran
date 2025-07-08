@@ -79,6 +79,15 @@ let test_parser_extra_closing_parens () =
     (Parser.show_parser_error (ParserError "Unmatched )"))
     (Parser.show_parser_error err)
 
+let test_parser_string_literal () =
+  let sexp_res =
+    Result.get_ok (Parser.parse (Stream.of_string {|"hello world"|}))
+  in
+  Alcotest.(check @@ string)
+    "string literal"
+    (show_sexp_list [ Atom (Str "hello world") ])
+    (show_sexp_list sexp_res)
+
 let () =
   run "Parser"
     [
@@ -101,4 +110,7 @@ let () =
           test_case "fail on extra closing parentheses" `Quick
             test_parser_extra_closing_parens;
         ] );
+      ( "string test",
+        [ test_case "parse a string literal" `Quick test_parser_string_literal ]
+      );
     ]

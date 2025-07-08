@@ -1,0 +1,4 @@
+(define (len s) (string-length s))
+(define (str-slice s start end) (substring s start end))
+(define (str-upper s) (string-upcase s))
+(define (str-lower s) (string_downcase s))

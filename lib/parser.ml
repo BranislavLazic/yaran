@@ -11,6 +11,7 @@ let to_ast = function
   | Ident id -> Atom (Ident id)
   | Num num -> Atom (Num num)
   | Operator op -> Atom (Operator op)
+  | Str s -> Atom (Str s)
   | _ -> Atom Empty
 
 let rec parse_one tokens =

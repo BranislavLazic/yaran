@@ -26,24 +26,27 @@ let run_program input =
       print_endline (Printf.sprintf "Error while parsing: \"%s\"" err)
 
 let load_stdlib () =
-  let stdlib_path = "stdlib/math.yaran" in
-  try
-    let ic = open_in stdlib_path in
-    let content = really_input_string ic (in_channel_length ic) in
-    close_in ic;
-    match parse (Stream.of_string content) with
-    | Ok sexps -> (
-        match eval_list sexps initial_env with
-        | Ok _ -> ()
-        | Error err ->
+  let stdlib_paths = [ "stdlib/math.yaran"; "stdlib/strings.yaran" ] in
+  List.iter
+    (fun stdlib_path ->
+      try
+        let ic = open_in stdlib_path in
+        let content = really_input_string ic (in_channel_length ic) in
+        close_in ic;
+        match parse (Stream.of_string content) with
+        | Ok sexps -> (
+            match eval_list sexps initial_env with
+            | Ok _ -> ()
+            | Error err ->
+                Printf.eprintf "Failed to load stdlib: %s\n" err;
+                exit 1)
+        | Error (ParserError err) ->
             Printf.eprintf "Failed to load stdlib: %s\n" err;
-            exit 1)
-    | Error (ParserError err) ->
-        Printf.eprintf "Failed to load stdlib: %s\n" err;
-        exit 1
-  with Sys_error msg ->
-    Printf.eprintf "Could not load stdlib: %s\n" msg;
-    exit 1
+            exit 1
+      with Sys_error msg ->
+        Printf.eprintf "Could not load stdlib: %s\n" msg;
+        exit 1)
+    stdlib_paths
 
 let () =
   List.iter

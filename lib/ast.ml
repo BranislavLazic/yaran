@@ -5,6 +5,7 @@ type atom =
   | Bool of bool
   | Nil
   | Empty
+  | Str of string
 [@@deriving show]
 
 type sexp = Atom of atom | ListSexp of sexp list [@@deriving show]

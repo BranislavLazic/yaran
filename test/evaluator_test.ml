@@ -6,13 +6,6 @@ open Alcotest
 let yaran_val_testable =
   testable (fun ppf v -> Fmt.string ppf (show_yaran_val v)) ( = )
 
-let empty_env () =
-  let env = { values = Hashtbl.create 10; parent = None } in
-  List.iter
-    (fun (name, func) -> Hashtbl.add env.values name (Builtin func))
-    builtin_ops;
-  env
-
 let test_eval_num () =
   let env = empty_env () in
   let result = eval (Atom (Num 123.0)) env ~debug:false in

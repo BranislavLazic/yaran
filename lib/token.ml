@@ -4,6 +4,7 @@ type tok =
   | Ident of string
   | Num of float
   | Operator of string
+  | Str of string
   | Eof
   | Bool of bool
   | Nil
