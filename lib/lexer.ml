@@ -12,7 +12,7 @@ let is_letter ch =
   (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 
 let is_digit ch = ch >= '0' && ch <= '9'
-let is_operator ch = List.exists (fun c -> c == ch) [ '+'; '-'; '*'; '/' ]
+let is_operator ch = List.exists (fun c -> c == ch) [ '+'; '-'; '*'; '/'; '>'; '<'; '=' ]
 let is_whitespace ch = ch == ' ' || ch == '\t' || ch == '\n'
 
 let try_next input =
@@ -26,18 +26,18 @@ let read_char input ({ read_position; _ } : lexer) =
 let check_peek_char cond input =
   match Stream.peek input with Some ch when cond ch -> true | _ -> false
 
-let concat_tokens = function
-  | Ident lvalue, Ident rvalue -> Ident (lvalue ^ rvalue)
-  | Num lvalue, Num rvalue -> Num (lvalue ^ rvalue)
-  | Operator lvalue, Operator rvalue -> Operator (lvalue ^ rvalue)
-  | Ident lvalue, _ -> Ident lvalue
-  | Num lvalue, _ -> Num lvalue
-  | Operator lvalue, _ -> Operator lvalue
-  | ltok, rtok ->
-      raise
-        (Illegal_token_found
-           (Printf.sprintf "Illegal characters found %s, %s." (show_tok ltok)
-              (show_tok rtok)))
+let read_while predicate input initial_lxr initial_char =
+  let rec read_chars current_lxr current_string =
+    if check_peek_char predicate input then (
+      let next_lxr = read_char input current_lxr in
+      match next_lxr.ch with
+      | Some c -> read_chars next_lxr (current_string ^ (String.make 1 c))
+      | None -> (current_string, current_lxr)
+    ) else (
+      (current_string, current_lxr)
+    )
+  in
+  read_chars initial_lxr (String.make 1 initial_char)
 
 (* Rip and tear... until it is None *)
 let rec next_token input lexer =
@@ -56,21 +56,17 @@ let rec next_token input lexer =
               (String.make 1 ch) lxr.read_position))
   | None -> (Eof, lxr)
 
-and handle_token input lxr ch token_constructor check_function =
-  let token = token_constructor (String.make 1 ch) in
-  if check_peek_char check_function input then
-    let tok, lxr = next_token input lxr in
-    (concat_tokens (token, tok), lxr)
-  else (token, lxr)
-
 and handle_letter input lxr ch =
-  handle_token input lxr ch (fun s -> Ident s) is_letter
+  let ident_string, final_lxr = read_while is_letter input lxr ch in
+  (Token.lookup_ident ident_string, final_lxr)
 
 and handle_digit input lxr ch =
-  handle_token input lxr ch (fun s -> Num s) is_digit
+  let num_string, final_lxr = read_while is_digit input lxr ch in
+  (Num num_string, final_lxr)
 
 and handle_operator input lxr ch =
-  handle_token input lxr ch (fun s -> Operator s) is_operator
+  let op_string, final_lxr = read_while is_operator input lxr ch in
+  (Operator op_string, final_lxr)
 
 let try_read read_fun input lexer =
   try Ok (read_fun input lexer)

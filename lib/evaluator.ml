@@ -18,18 +18,12 @@ let rec eval sexp env ~debug =
 
 and eval_operator op args =
   match op with
-  | "+" ->
+  | "+" | "-" | "*" | "/" | "mod" ->
       Printf.sprintf "%d"
-        (eval_numeric_operation (ListSexp (Atom (Operator "+") :: args)))
-  | "-" ->
-      Printf.sprintf "%d"
-        (eval_numeric_operation (ListSexp (Atom (Operator "-") :: args)))
-  | "*" ->
-      Printf.sprintf "%d"
-        (eval_numeric_operation (ListSexp (Atom (Operator "*") :: args)))
-  | "/" ->
-      Printf.sprintf "%d"
-        (eval_numeric_operation (ListSexp (Atom (Operator "/") :: args)))
+        (eval_numeric_operation (ListSexp (Atom (Operator op) :: args)))
+  | ">" | "<" | ">=" | "<=" | "=" ->
+      Printf.sprintf "%b"
+        (eval_comparison_operation op args)
   | _ ->
       raise
         (Unsupported_operation (Printf.sprintf "Unsupported operator: %s" op))

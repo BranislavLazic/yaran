@@ -11,6 +11,7 @@ let rec eval_numeric_operation = function
   | ListSexp (Atom (Operator "-") :: t) -> subtract t
   | ListSexp (Atom (Operator "*") :: t) -> multiply t
   | ListSexp (Atom (Operator "/") :: t) -> divide t
+  | ListSexp (Atom (Operator "mod") :: t) -> modulo t
   | ListSexp (Atom a :: _) ->
       raise
         (Unsupported_operation
@@ -35,6 +36,11 @@ and divide sexps =
   | [] -> raise (Unsupported_operation "Division requires at least one number.")
   | h :: t -> List.fold_left ( / ) h t
 
+and modulo sexps =
+  match nums_only sexps with
+  | [ h; t ] -> h mod t
+  | _ -> raise (Unsupported_operation "Modulo requires exactly two numbers.")
+
 and nums_only sexps =
   List.map
     (function
@@ -43,3 +49,22 @@ and nums_only sexps =
           eval_numeric_operation (ListSexp (Atom (Operator op) :: inner_rest))
       | _ -> raise (Not_number "Not a number."))
     sexps
+
+let eval_comparison_operation op sexps =
+  match nums_only sexps with
+  | [ h1; h2 ] -> (
+      match op with
+      | ">" -> h1 > h2
+      | "<" -> h1 < h2
+      | ">=" -> h1 >= h2
+      | "<=" -> h1 <= h2
+      | "=" -> h1 = h2
+      | _ ->
+          raise
+            (Unsupported_operation
+               (Printf.sprintf "The comparison operation '%s' is not supported."
+                  op)))
+  | _ ->
+      raise
+        (Unsupported_operation
+           "Comparison operations require exactly two numbers.")

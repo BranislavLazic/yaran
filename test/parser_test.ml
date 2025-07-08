@@ -43,6 +43,28 @@ let test_unbalanced_parens () =
     (Parser.show_parser_error (ParserError "Unmatched ("))
     (Parser.show_parser_error err)
 
+(* New tests *)
+
+let test_parser_empty_list () =
+  let sexp_res = Result.get_ok (Parser.parse (Stream.of_string "()")) in
+  Alcotest.(check @@ string) "empty list" (show_sexp (ListSexp [])) (show_sexp sexp_res)
+
+let test_parser_nested_empty_list () =
+  let sexp_res = Result.get_ok (Parser.parse (Stream.of_string "(())")) in
+  Alcotest.(check @@ string) "nested empty list" (show_sexp (ListSexp [ListSexp []])) (show_sexp sexp_res)
+
+let test_parser_missing_closing_parens_nested () =
+  let err = Result.get_error (Parser.parse (Stream.of_string "(1 (2 3)")) in
+  Alcotest.(check @@ string)
+    "missing closing parens nested" (Parser.show_parser_error (ParserError "Unmatched ("))
+    (Parser.show_parser_error err)
+
+let test_parser_extra_closing_parens () =
+  let err = Result.get_error (Parser.parse (Stream.of_string "(1 2))")) in
+  Alcotest.(check @@ string)
+    "extra closing parens" (Parser.show_parser_error (ParserError "Unmatched )"))
+    (Parser.show_parser_error err)
+
 let () =
   run "Parser"
     [
@@ -51,11 +73,15 @@ let () =
         [
           test_case "parse a complex s-expression" `Quick
             test_parser_atom_in_list;
+          test_case "parse empty list" `Quick test_parser_empty_list;
+          test_case "parse nested empty list" `Quick test_parser_nested_empty_list;
         ] );
       ( "parentheses test",
         [
           test_case "parse balanced parentheses" `Quick test_balanced_parens;
           test_case "fail to parse unbalanced parentheses" `Quick
             test_unbalanced_parens;
+          test_case "fail on missing closing parentheses nested" `Quick test_parser_missing_closing_parens_nested;
+          test_case "fail on extra closing parentheses" `Quick test_parser_extra_closing_parens;
         ] );
     ]

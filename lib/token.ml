@@ -5,4 +5,13 @@ type tok =
   | Num of string
   | Operator of string
   | Eof
+  | Bool of bool
+  | Nil
 [@@deriving show]
+
+let lookup_ident = function
+  | "mod" -> Operator "mod"
+  | "true" -> Bool true
+  | "false" -> Bool false
+  | "nil" -> Nil
+  | s -> Ident s

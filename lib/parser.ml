@@ -6,9 +6,8 @@ type parser_error = ParserError of string [@@deriving show]
 exception Unmatched_parens of string
 
 let to_ast = function
-  | Ident "nil" -> Atom Nil
-  | Ident "true" -> Atom (Bool true)
-  | Ident "false" -> Atom (Bool false)
+  | Bool b -> Atom (Bool b)
+  | Nil -> Atom Nil
   | Ident id -> Atom (Ident id)
   | Num num -> Atom (Num (int_of_string num))
   | Operator op -> Atom (Operator op)
@@ -17,39 +16,36 @@ let to_ast = function
 let try_parse parser tokens =
   try
     let sexps, remaining_tokens = parser tokens in
-    if
-      List.exists
-        (function OpenParens | ClosedParens -> true | _ -> false)
-        remaining_tokens
-    then Error (ParserError "Unmatched parentheses")
-    else Ok sexps
+    match remaining_tokens with
+    | [] -> Ok sexps (* All tokens consumed, successful parse *)
+    | [Eof] -> Ok sexps (* All tokens consumed, successful parse *)
+    | ClosedParens :: _ -> Error (ParserError "Unmatched )") (* Extra closing parenthesis *)
+    | OpenParens :: _ -> Error (ParserError "Unmatched (") (* Unmatched opening parenthesis *)
+    | _ -> Error (ParserError "Unexpected tokens after parsing") (* Other unexpected tokens *)
   with Unmatched_parens err -> Error (ParserError err)
 
-let rec parse = function
-  | [] -> (ListSexp [], [])
-  | OpenParens :: rest -> (
-      match parse_list rest with
-      | sexpr, ClosedParens :: rest' -> (sexpr, rest')
-      | _ -> raise (Unmatched_parens "Unmatched ("))
+let rec parse tokens =
+  match tokens with
+  | [] -> raise (Unmatched_parens "Unexpected end of input") (* Should not happen if input is valid *)
+  | OpenParens :: rest ->
+      let sexps, remaining_tokens = parse_list rest in
+      (ListSexp sexps, remaining_tokens)
   | ClosedParens :: _ -> raise (Unmatched_parens "Unmatched )")
   | tok :: rest -> (to_ast tok, rest)
 
 and parse_list tokens =
   match tokens with
-  | [] | ClosedParens :: _ -> (ListSexp [], tokens)
+  | [] -> raise (Unmatched_parens "Unmatched (") (* Missing closing parenthesis *)
+  | ClosedParens :: rest -> ([], rest)
   | _ ->
       let sexp, rest = parse tokens in
-      let rest_sexp, rest' = parse_list rest in
-      (concat_sexps (ListSexp [ sexp ], rest_sexp), rest')
-
-and concat_sexps = function
-  | ListSexp left, ListSexp right -> ListSexp (left @ right)
-  | _ -> ListSexp []
+      let sexps, remaining_tokens = parse_list rest in
+      (sexp :: sexps, remaining_tokens)
 
 let parse input =
   match Lexer.read_all input Lexer.init_lexer with
   | Ok toks -> (
       match try_parse parse toks with
-      | Ok sexps -> Ok (flatten sexps)
+      | Ok sexps -> Ok sexps (* Removed flatten *)
       | Error err -> Error err)
   | Error (LexerError err) -> Error (ParserError err)
