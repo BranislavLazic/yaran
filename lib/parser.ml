@@ -9,24 +9,13 @@ let to_ast = function
   | Bool b -> Atom (Bool b)
   | Nil -> Atom Nil
   | Ident id -> Atom (Ident id)
-  | Num num -> Atom (Num (int_of_string num))
+  | Num num -> Atom (Num num)
   | Operator op -> Atom (Operator op)
   | _ -> Atom Empty
 
-let try_parse parser tokens =
-  try
-    let sexps, remaining_tokens = parser tokens in
-    match remaining_tokens with
-    | [] -> Ok sexps (* All tokens consumed, successful parse *)
-    | [Eof] -> Ok sexps (* All tokens consumed, successful parse *)
-    | ClosedParens :: _ -> Error (ParserError "Unmatched )") (* Extra closing parenthesis *)
-    | OpenParens :: _ -> Error (ParserError "Unmatched (") (* Unmatched opening parenthesis *)
-    | _ -> Error (ParserError "Unexpected tokens after parsing") (* Other unexpected tokens *)
-  with Unmatched_parens err -> Error (ParserError err)
-
-let rec parse tokens =
+let rec parse_one tokens =
   match tokens with
-  | [] -> raise (Unmatched_parens "Unexpected end of input") (* Should not happen if input is valid *)
+  | [] -> raise (Unmatched_parens "Unexpected end of input")
   | OpenParens :: rest ->
       let sexps, remaining_tokens = parse_list rest in
       (ListSexp sexps, remaining_tokens)
@@ -35,17 +24,28 @@ let rec parse tokens =
 
 and parse_list tokens =
   match tokens with
-  | [] -> raise (Unmatched_parens "Unmatched (") (* Missing closing parenthesis *)
+  | [] -> raise (Unmatched_parens "Unmatched (")
   | ClosedParens :: rest -> ([], rest)
   | _ ->
-      let sexp, rest = parse tokens in
+      let sexp, rest = parse_one tokens in
       let sexps, remaining_tokens = parse_list rest in
+      (sexp :: sexps, remaining_tokens)
+
+let rec parse_all tokens =
+  match tokens with
+  | [] | [ Eof ] -> ([], [])
+  | _ ->
+      let sexp, rest = parse_one tokens in
+      let sexps, remaining_tokens = parse_all rest in
       (sexp :: sexps, remaining_tokens)
 
 let parse input =
   match Lexer.read_all input Lexer.init_lexer with
   | Ok toks -> (
-      match try_parse parse toks with
-      | Ok sexps -> Ok sexps (* Removed flatten *)
-      | Error err -> Error err)
+      try
+        let sexps, remaining_tokens = parse_all toks in
+        match remaining_tokens with
+        | [] | [ Eof ] -> Ok sexps
+        | _ -> Error (ParserError "Unexpected tokens at end of input")
+      with Unmatched_parens err -> Error (ParserError err))
   | Error (LexerError err) -> Error (ParserError err)

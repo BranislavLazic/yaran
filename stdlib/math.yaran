@@ -1,0 +1,16 @@
+(define PI 3.141592653589793)
+
+(define (square x) (* x x))
+
+(define (cube x) (* x x x))
+
+(define (abs x) (if (< x 0) (- 0 x) x))
+
+(define (max a b) (if (> a b) a b))
+
+(define (min a b) (if (< a b) a b))
+
+(define (pow base exp)
+  (if (= exp 0)
+      1
+      (* base (pow base (- exp 1)))))

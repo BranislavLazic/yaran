@@ -1,39 +1,228 @@
-open Builtin
 open Ast
 
-type environment = { values : (string, string) Hashtbl.t }
+type yaran_val =
+  | NumVal of float
+  | BoolVal of bool
+  | StringVal of string
+  | NilVal
+  | Closure of { params : Ast.sexp list; body : Ast.sexp; env : environment }
+  | Builtin of (yaran_val list -> yaran_val)
+
+and environment = {
+  values : (string, yaran_val) Hashtbl.t;
+  parent : environment option;
+}
+
+exception Unsupported_operation of string
+exception Not_a_list of string
+
+let show_yaran_val = function
+  | NumVal n -> string_of_float n
+  | BoolVal b -> string_of_bool b
+  | StringVal s -> s
+  | NilVal -> "nil"
+  | Closure _ -> "<closure>"
+  | Builtin _ -> "<builtin>"
+
+let builtin_ops =
+  [
+    ( "+",
+      fun args ->
+        NumVal
+          (List.fold_left ( +. ) 0.0
+             (List.map
+                (function
+                  | NumVal n -> n
+                  | _ -> raise (Unsupported_operation "Not a number"))
+                args)) );
+    ( "-",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [] ->
+            raise
+              (Unsupported_operation "Subtraction requires at least one number.")
+        | h :: t -> NumVal (List.fold_left ( -. ) h t) );
+    ( "*",
+      fun args ->
+        NumVal
+          (List.fold_left ( *. ) 1.0
+             (List.map
+                (function
+                  | NumVal n -> n
+                  | _ -> raise (Unsupported_operation "Not a number"))
+                args)) );
+    ( "/",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [] ->
+            raise
+              (Unsupported_operation "Division requires at least one number.")
+        | h :: t -> NumVal (List.fold_left ( /. ) h t) );
+    ( ">",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [ h1; h2 ] -> BoolVal (h1 > h2)
+        | _ ->
+            raise
+              (Unsupported_operation
+                 "Comparison operations require exactly two numbers.") );
+    ( "<",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [ h1; h2 ] -> BoolVal (h1 < h2)
+        | _ ->
+            raise
+              (Unsupported_operation
+                 "Comparison operations require exactly two numbers.") );
+    ( ">=",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [ h1; h2 ] -> BoolVal (h1 >= h2)
+        | _ ->
+            raise
+              (Unsupported_operation
+                 "Comparison operations require exactly two numbers.") );
+    ( "<=",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [ h1; h2 ] -> BoolVal (h1 <= h2)
+        | _ ->
+            raise
+              (Unsupported_operation
+                 "Comparison operations require exactly two numbers.") );
+    ( "=",
+      fun args ->
+        let nums =
+          List.map
+            (function
+              | NumVal n -> n
+              | _ -> raise (Unsupported_operation "Not a number"))
+            args
+        in
+        match nums with
+        | [ h1; h2 ] -> BoolVal (h1 = h2)
+        | _ ->
+            raise
+              (Unsupported_operation
+                 "Comparison operations require exactly two numbers.") );
+  ]
 
 let rec eval sexp env ~debug =
   match sexp with
-  | ListSexp (Atom (Operator op) :: args) -> eval_operator op args
-  | Atom (Num n) -> Printf.sprintf "%d" n
-  | Atom (Bool b) -> Printf.sprintf "%b" b
+  | Atom (Num n) -> NumVal n
+  | Atom (Bool b) -> BoolVal b
   | Atom (Ident id) -> eval_identifier id env
-  | ListSexp sexps -> eval_list sexps env ~debug
-  | s when debug -> Printf.sprintf "%s" (show_sexp s)
+  | ListSexp [] -> NilVal
+  | ListSexp [ ListSexp s ] -> eval (ListSexp s) env ~debug
+  | ListSexp (Atom (Ident "define") :: tail) -> eval_define tail env ~debug
+  | ListSexp (Atom (Ident "if") :: tail) -> eval_if tail env ~debug
+  | ListSexp (Atom (Operator op) :: tail)
+    when List.mem op (List.map fst builtin_ops) ->
+      let func = List.assoc op builtin_ops in
+      let args = List.map (fun arg -> eval arg env ~debug) tail in
+      apply (Builtin func) args
+  | ListSexp (head :: tail) ->
+      let func = eval head env ~debug in
+      let args = List.map (fun arg -> eval arg env ~debug) tail in
+      apply func args
+  | s when debug ->
+      print_endline (show_sexp s);
+      NilVal
   | _ ->
       raise
         (Unsupported_operation
            (Printf.sprintf "The expression cannot be evaluated."))
 
-and eval_operator op args =
-  match op with
-  | "+" | "-" | "*" | "/" | "mod" ->
-      Printf.sprintf "%d"
-        (eval_numeric_operation (ListSexp (Atom (Operator op) :: args)))
-  | ">" | "<" | ">=" | "<=" | "=" ->
-      Printf.sprintf "%b"
-        (eval_comparison_operation op args)
-  | _ ->
-      raise
-        (Unsupported_operation (Printf.sprintf "Unsupported operator: %s" op))
+and eval_define args env ~debug =
+  match args with
+  | [ Atom (Ident name); value ] ->
+      let value = eval value env ~debug in
+      Hashtbl.add env.values name value;
+      NilVal
+  | [ ListSexp (Atom (Ident name) :: params); body ] ->
+      let closure = Closure { params; body; env } in
+      Hashtbl.add env.values name closure;
+      NilVal
+  | _ -> raise (Unsupported_operation "Invalid define syntax")
+
+and eval_if args env ~debug =
+  match args with
+  | [ cond; then_branch ] -> (
+      match eval cond env ~debug with
+      | BoolVal true -> eval then_branch env ~debug
+      | BoolVal false -> NilVal
+      | _ -> raise (Unsupported_operation "Condition must be a boolean"))
+  | [ cond; then_branch; else_branch ] -> (
+      match eval cond env ~debug with
+      | BoolVal true -> eval then_branch env ~debug
+      | BoolVal false -> eval else_branch env ~debug
+      | _ -> raise (Unsupported_operation "Condition must be a boolean"))
+  | _ -> raise (Unsupported_operation "Invalid if syntax")
 
 and eval_identifier id env =
   try Hashtbl.find env.values id
-  with Not_found ->
-    raise (Unsupported_operation (Printf.sprintf "Unknown identifier: %s" id))
+  with Not_found -> (
+    match env.parent with
+    | Some p -> eval_identifier id p
+    | None ->
+        raise
+          (Unsupported_operation (Printf.sprintf "Unknown identifier: %s" id)))
 
-and eval_list sexps env ~debug =
-  match sexps with
-  | [] -> "nil"
-  | _ -> String.concat " " (List.map (fun sexp -> eval sexp env ~debug) sexps)
+and apply func args =
+  match func with
+  | Builtin f -> f args
+  | Closure { params; body; env } ->
+      let new_env = { values = Hashtbl.create 10; parent = Some env } in
+      List.iter2
+        (fun param arg ->
+          match param with
+          | Atom (Ident name) -> Hashtbl.add new_env.values name arg
+          | _ -> raise (Unsupported_operation "Invalid parameter list"))
+        params args;
+      eval body new_env ~debug:false
+  | _ ->
+      raise
+        (Unsupported_operation
+           (Printf.sprintf "Not a function: %s" (show_yaran_val func)))

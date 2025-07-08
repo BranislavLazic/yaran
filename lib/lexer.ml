@@ -11,8 +11,11 @@ let init_lexer = { read_position = -1; ch = None }
 let is_letter ch =
   (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || ch == '_'
 
-let is_digit ch = ch >= '0' && ch <= '9'
-let is_operator ch = List.exists (fun c -> c == ch) [ '+'; '-'; '*'; '/'; '>'; '<'; '=' ]
+let is_digit ch = (ch >= '0' && ch <= '9') || ch == '.'
+
+let is_operator ch =
+  List.exists (fun c -> c == ch) [ '+'; '-'; '*'; '/'; '>'; '<'; '=' ]
+
 let is_whitespace ch = ch == ' ' || ch == '\t' || ch == '\n'
 
 let try_next input =
@@ -28,14 +31,12 @@ let check_peek_char cond input =
 
 let read_while predicate input initial_lxr initial_char =
   let rec read_chars current_lxr current_string =
-    if check_peek_char predicate input then (
+    if check_peek_char predicate input then
       let next_lxr = read_char input current_lxr in
       match next_lxr.ch with
-      | Some c -> read_chars next_lxr (current_string ^ (String.make 1 c))
+      | Some c -> read_chars next_lxr (current_string ^ String.make 1 c)
       | None -> (current_string, current_lxr)
-    ) else (
-      (current_string, current_lxr)
-    )
+    else (current_string, current_lxr)
   in
   read_chars initial_lxr (String.make 1 initial_char)
 
@@ -62,7 +63,7 @@ and handle_letter input lxr ch =
 
 and handle_digit input lxr ch =
   let num_string, final_lxr = read_while is_digit input lxr ch in
-  (Num num_string, final_lxr)
+  (Num (float_of_string num_string), final_lxr)
 
 and handle_operator input lxr ch =
   let op_string, final_lxr = read_while is_operator input lxr ch in

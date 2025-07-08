@@ -2,7 +2,7 @@ type tok =
   | OpenParens
   | ClosedParens
   | Ident of string
-  | Num of string
+  | Num of float
   | Operator of string
   | Eof
   | Bool of bool
